@@ -5,14 +5,14 @@ import '../providers/user_provider.dart';
 import 'user_form_screen.dart';
 
 class UserDetailScreen extends StatelessWidget {
-  final User user;
+  final int userId;
 
   const UserDetailScreen({
     super.key,
-    required this.user,
+    required this.userId,
   });
 
-  void _navigateToEdit(BuildContext context) {
+  void _navigateToEdit(BuildContext context, User user) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -21,7 +21,7 @@ class UserDetailScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _showDeleteDialog(BuildContext context) async {
+  Future<void> _showDeleteDialog(BuildContext context, User user) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -41,11 +41,11 @@ class UserDetailScreen extends StatelessWidget {
       ),
     );
     if (result == true && context.mounted) {
-      await _deleteUser(context);
+      await _deleteUser(context, user);
     }
   }
 
-  Future<void> _deleteUser(BuildContext context) async {
+  Future<void> _deleteUser(BuildContext context, User user) async {
     if (user.id == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -55,10 +55,8 @@ class UserDetailScreen extends StatelessWidget {
       );
       return;
     }
-    
     final provider = context.read<UserProvider>();
     final success = await provider.deleteUser(user.id!);
-    
     if (context.mounted) {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -81,79 +79,69 @@ class UserDetailScreen extends StatelessWidget {
   
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(user.fullName),
-        centerTitle: true,
-        elevation: 2,
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        actions: [
-          // Botón de editar en el AppBar
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () => _navigateToEdit(context),
-            tooltip: 'Editar Usuario',
-          ),
-          // Botón de eliminar en el AppBar
-          if (user.id != null)
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () => _showDeleteDialog(context),
-              tooltip: 'Eliminar Usuario',
-            ),
-        ],
-      ),
-      body: Consumer<UserProvider>(
-        builder: (context, provider, child) {
-          // Mostrar loading si se está eliminando
-          if (provider.deleteState == LoadingState.loading) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Eliminando usuario...'),
-                ],
+    return Consumer<UserProvider>(
+      builder: (context, provider, child) {
+        final user = provider.users.firstWhere(
+          (u) => u.id == userId,
+          orElse: () => provider.selectedUser ?? User(id: userId, email: '', firstName: '', lastName: '', avatar: ''),
+        );
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(user.fullName),
+            centerTitle: true,
+            elevation: 2,
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Colors.white,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () => _navigateToEdit(context, user),
+                tooltip: 'Editar Usuario',
               ),
-            );
-          }
-          
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Tarjeta principal con avatar y información básica
-                _buildMainCard(),
-                
-                const SizedBox(height: 20),
-                
-                // Tarjeta con información detallada
-                _buildDetailCard(),
-                
-                const SizedBox(height: 20),
-                
-                // Botones de acción
-                _buildActionButtons(context),
-              ],
-            ),
-          );
-        },
-      ),
+              if (user.id != null)
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () => _showDeleteDialog(context, user),
+                  tooltip: 'Eliminar Usuario',
+                ),
+            ],
+          ),
+          body: provider.deleteState == LoadingState.loading
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Eliminando usuario...'),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildMainCard(user),
+                      const SizedBox(height: 20),
+                      _buildDetailCard(user),
+                      const SizedBox(height: 20),
+                      _buildActionButtons(context, user),
+                    ],
+                  ),
+                ),
+        );
+      },
     );
   }
   
-  /// Construye la tarjeta principal con avatar y nombre
-  Widget _buildMainCard() {
+  Widget _buildMainCard(User user) {
     return Card(
       elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            // Avatar grande
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
@@ -171,19 +159,14 @@ class UserDetailScreen extends StatelessWidget {
                     ? NetworkImage(user.avatar)
                     : null,
                 onBackgroundImageError: user.avatar.isNotEmpty 
-                    ? (exception, stackTrace) {
-                        // Error al cargar imagen, se mostrará el icono por defecto
-                      }
+                    ? (exception, stackTrace) {}
                     : null,
                 child: user.avatar.isEmpty 
                     ? const Icon(Icons.person, size: 60)
                     : null,
               ),
             ),
-            
             const SizedBox(height: 16),
-            
-            // Nombre completo
             Text(
               user.fullName,
               style: const TextStyle(
@@ -192,10 +175,7 @@ class UserDetailScreen extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            
             const SizedBox(height: 8),
-            
-            // Email
             Text(
               user.email,
               style: TextStyle(
@@ -204,8 +184,6 @@ class UserDetailScreen extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            
-            // ID (si existe)
             if (user.id != null) ...[
               const SizedBox(height: 8),
               Container(
@@ -230,8 +208,7 @@ class UserDetailScreen extends StatelessWidget {
     );
   }
   
-  /// Construye la tarjeta con información detallada
-  Widget _buildDetailCard() {
+  Widget _buildDetailCard(User user) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -247,34 +224,27 @@ class UserDetailScreen extends StatelessWidget {
                 color: Colors.grey.shade800,
               ),
             ),
-            
             const SizedBox(height: 16),
-            
-            // Información en formato de lista
             _buildDetailItem(
               icon: Icons.badge,
               label: 'ID',
               value: user.id?.toString() ?? 'N/A',
             ),
-            
             _buildDetailItem(
               icon: Icons.person,
               label: 'Nombre',
               value: user.firstName,
             ),
-            
             _buildDetailItem(
               icon: Icons.person_outline,
               label: 'Apellido',
               value: user.lastName,
             ),
-            
             _buildDetailItem(
               icon: Icons.email,
               label: 'Email',
               value: user.email,
             ),
-            
             _buildDetailItem(
               icon: Icons.image,
               label: 'Avatar URL',
@@ -334,14 +304,12 @@ class UserDetailScreen extends StatelessWidget {
     );
   }
   
-  /// Construye los botones de acción
-  Widget _buildActionButtons(BuildContext context) {
+  Widget _buildActionButtons(BuildContext context, User user) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Botón de editar
         ElevatedButton.icon(
-          onPressed: () => _navigateToEdit(context),
+          onPressed: () => _navigateToEdit(context, user),
           icon: const Icon(Icons.edit),
           label: const Text('Editar Usuario'),
           style: ElevatedButton.styleFrom(
@@ -351,13 +319,10 @@ class UserDetailScreen extends StatelessWidget {
             ),
           ),
         ),
-        
         const SizedBox(height: 12),
-        
-        // Botón de eliminar (solo si tiene ID)
         if (user.id != null)
           ElevatedButton.icon(
-            onPressed: () => _showDeleteDialog(context),
+            onPressed: () => _showDeleteDialog(context, user),
             icon: const Icon(Icons.delete),
             label: const Text('Eliminar Usuario'),
             style: ElevatedButton.styleFrom(

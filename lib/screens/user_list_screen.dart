@@ -61,7 +61,7 @@ class _UserListScreenState extends State<UserListScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => UserDetailScreen(user: user),
+        builder: (context) => UserDetailScreen(userId: user.id!),
       ),
     );
   }
@@ -265,7 +265,7 @@ class _UserListScreenState extends State<UserListScreen> {
       );
     }
     
-    // Lista de usuarios con RefreshIndicator
+    // lista de usuarios con RefreshIndicator
     return RefreshIndicator(
       onRefresh: provider.refresh,
       child: ListView.builder(
@@ -273,7 +273,7 @@ class _UserListScreenState extends State<UserListScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         itemCount: provider.displayUsers.length + (provider.isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
-          // Mostrar indicador de carga al final si se están cargando más usuarios
+          // indicador de carga al final si se están cargando más usuarios
           if (index == provider.displayUsers.length) {
             return const Padding(
               padding: EdgeInsets.all(16.0),
